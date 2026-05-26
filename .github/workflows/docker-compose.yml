@@ -1,4 +1,3 @@
-
 name: Validar contenedores
 
 on:
@@ -51,7 +50,6 @@ jobs:
             echo "Esperando backend..."
             sleep 3
           done
-
           echo "Backend no respondio a tiempo"
           docker compose logs backend
           exit 1
