@@ -1,43 +1,68 @@
 # Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+name: Validar contenedores
 
 on:
-  # Runs on pushes targeting the default branch
   push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+    branches:
+      - main
+      - master
+  pull_request:
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  docker-compose:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Descargar repositorio
         uses: actions/checkout@v4
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # Upload entire repository
-          path: '.'
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+
+      - name: Mostrar versiones
+        run: |
+          docker --version
+          docker compose version
+
+      - name: Crear archivo de entorno
+        run: |
+          cat > .env <<'EOF'
+          MYSQL_ROOT_PASSWORD=root
+          MYSQL_DATABASE=tienda
+          MYSQL_USER=tienda
+          MYSQL_PASSWORD=tienda
+          DB_HOST=db
+          DB_PORT=3306
+          DB_NAME=tienda
+          DB_USER=tienda
+          DB_PASSWORD=tienda
+          EOF
+
+      - name: Construir y levantar contenedores
+        run: docker compose up -d --build
+
+      - name: Ver estado de contenedores
+        run: docker compose ps
+
+      - name: Esperar backend
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3001/ >/dev/null; then
+              echo "Backend listo"
+              exit 0
+            fi
+            echo "Esperando backend..."
+            sleep 3
+          done
+
+          echo "Backend no respondio a tiempo"
+          docker compose logs backend
+          exit 1
+
+      - name: Probar frontend
+        run: curl -fsS http://localhost:8080/ >/dev/null
+
+      - name: Mostrar logs si falla
+        if: failure()
+        run: docker compose logs
+
+      - name: Apagar contenedores
+        if: always()
+        run: docker compose down -v
