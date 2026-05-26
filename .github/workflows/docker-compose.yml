@@ -2,10 +2,12 @@ name: Validar contenedores
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   pull_request:
+
+env:
+  # Esto quita el aviso de deprecación de Node 20
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   docker-compose:
@@ -14,11 +16,6 @@ jobs:
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
-
-      - name: Mostrar versiones
-        run: |
-          docker --version
-          docker compose version
 
       - name: Crear archivo de entorno
         run: |
@@ -35,22 +32,23 @@ jobs:
           EOF
 
       - name: Construir y levantar contenedores
-        run: docker compose up -d --build
+        # Forzamos la lectura del archivo en la raíz
+        run: docker compose -f docker-compose.yml up -d --build
 
       - name: Ver estado de contenedores
         run: docker compose ps
 
       - name: Esperar backend
         run: |
-          for i in {1..30}; do
+          for i in {1..20}; do
             if curl -fsS http://localhost:3001/ >/dev/null; then
               echo "Backend listo"
               exit 0
             fi
-            echo "Esperando backend..."
-            sleep 3
+            echo "Esperando backend en puerto 3001..."
+            sleep 5
           done
-          echo "Backend no respondio a tiempo"
+          echo "Backend no respondio"
           docker compose logs backend
           exit 1
 
